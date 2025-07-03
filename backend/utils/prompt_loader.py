@@ -1,3 +1,7 @@
+# backend/utils/prompt_loader.py
+# This file contains the prompt loading and management utility for dynamic prompt template handling
+# Purpose: Load, cache, validate, and format prompt templates from classes and files with dynamic modification support. This is NOT for LLM communication or configuration management.
+
 """
 Prompt loading and management utility.
 """

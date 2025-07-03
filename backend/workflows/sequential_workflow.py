@@ -1,6 +1,6 @@
 # backend/workflows/sequential_workflow.py
 # This file contains the sequential workflow implementation that executes agents one after another
-# Purpose: Execute agents in a predefined sequential order with context passing, progress tracking, and failure recovery
+# Purpose: Execute agents in a predefined sequential order with context passing, progress tracking, and failure recovery. This is NOT for parallel execution or agent creation.
 
 from typing import Dict, Any, Optional, List
 

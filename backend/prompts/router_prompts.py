@@ -1,3 +1,7 @@
+# backend/prompts/router_prompts.py
+# This file contains router agent prompts for task decomposition, agent selection, and context summarization
+# Purpose: Provide prompt templates for the router agent to decompose complex tasks, select appropriate agents, and manage context flow between agents. This is NOT for task execution or general utility prompts.
+
 """
 Router agent prompts for task decomposition and agent selection.
 """

@@ -1,3 +1,7 @@
+# backend/prompts/task_agent_prompts.py
+# This file contains task agent prompts for various task execution scenarios including general, specialized, and context integration
+# Purpose: Provide prompt templates for task agents to handle different types of tasks with proper context integration and response formatting. This is NOT for router prompts or common utility prompts.
+
 """
 Task agent prompts for various task execution scenarios.
 """

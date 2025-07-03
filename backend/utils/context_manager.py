@@ -1,3 +1,7 @@
+# backend/utils/context_manager.py
+# This file contains the context management system using LangChain memory components for conversation and task context
+# Purpose: Manage, store, retrieve, and compress conversation context between agents and users with relevance scoring. This is NOT for configuration management or direct LLM communication.
+
 """
 Context management using LangChain memory components.
 """
@@ -138,37 +142,6 @@ class ContextManager:
             self._memories[context_type] = summary_memory
             self.logger.info(f"🗜️ Compressed {context_type} context to {max_token_limit} tokens")
     
-    def calculate_relevance_score(self, context_type: str, query: str) -> float:
-        """
-        Calculate relevance score of context to a query.
-        
-        Args:
-            context_type: Type of context
-            query: Query to score against
-            
-        Returns:
-            Relevance score (0-1)
-        """
-        with self._lock:
-            messages = self.retrieve_context(context_type)
-            if not messages:
-                return 0.0
-            
-            # Simple keyword-based scoring
-            query_words = set(query.lower().split())
-            context_text = " ".join([msg.content for msg in messages]).lower()
-            context_words = set(context_text.split())
-            
-            # Calculate Jaccard similarity
-            intersection = query_words.intersection(context_words)
-            union = query_words.union(context_words)
-            
-            if not union:
-                return 0.0
-            
-            score = len(intersection) / len(union)
-            self.logger.debug(f"📊 Relevance score for {context_type}: {score:.2f}")
-            return score
     
     def clear_context(self, context_type: Optional[str] = None) -> None:
         """

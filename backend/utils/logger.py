@@ -1,3 +1,7 @@
+# backend/utils/logger.py
+# This file contains the comprehensive logging system with Rich formatting and file logging support
+# Purpose: Provide centralized logging with console and file output, LangChain integration, and structured logging for agents and workflows. This is NOT for configuration management or direct application logic.
+
 """
 Comprehensive logging system with Rich formatting and file logging support.
 """

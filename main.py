@@ -1,3 +1,7 @@
+# main.py
+# This file is the main application entry point for the AI Agentic Workflow Launchpad
+# Purpose: Orchestrates system initialization, CLI interface, and agent workflow execution. This is NOT for individual agent implementations or configuration management.
+
 """
 AI Agentic Workflow Launchpad - Main Application Entry Point
 """

@@ -1,3 +1,7 @@
+# backend/agents/base_agent.py
+# This file contains the abstract base agent class with LangChain integration and state management
+# Purpose: Provide the foundational agent interface with execution, validation, and error handling capabilities. This is NOT for specific agent implementations or workflow orchestration.
+
 """
 Abstract base agent with LangChain integration.
 """

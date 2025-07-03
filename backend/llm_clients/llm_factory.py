@@ -1,3 +1,7 @@
+# backend/llm_clients/llm_factory.py
+# This file contains the LLM client factory for creating and managing LLM client instances
+# Purpose: Provide a centralized factory for creating, caching, and managing different LLM provider clients (OpenAI, Gemini, etc.). This is NOT for direct LLM communication or prompt handling.
+
 """
 LLM client factory for creating and managing LLM client instances.
 """

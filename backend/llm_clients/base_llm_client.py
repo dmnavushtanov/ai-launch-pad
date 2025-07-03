@@ -1,3 +1,7 @@
+# backend/llm_clients/base_llm_client.py
+# This file contains the abstract base class for LLM clients with standardized response handling
+# Purpose: Provide the foundational interface for all LLM providers with retry logic, validation, and response formatting. This is NOT for specific provider implementations or configuration loading.
+
 """
 Simplified abstract base class for LLM clients.
 Focus on essential functionality for agentic workflow foundation.

@@ -1,3 +1,7 @@
+# implementation_prompts.md
+# This file contains detailed implementation prompts for building the AI Agentic Workflow Launchpad system phase by phase
+# Purpose: Provide step-by-step implementation guidance with specific prompts for each component and phase of development. This is NOT for user documentation or runtime configuration.
+
 # Implementation Prompts for AI Agentic Launch Pad
 
 ## Phase 1: Project Setup and Configuration

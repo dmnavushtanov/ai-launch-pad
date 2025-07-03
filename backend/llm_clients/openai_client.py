@@ -1,3 +1,7 @@
+# backend/llm_clients/openai_client.py
+# This file contains the OpenAI client implementation using langchain-openai for LLM communication
+# Purpose: Handle OpenAI API interactions, token counting, and response formatting with proper error handling. This is NOT for other LLM providers or configuration management.
+
 """
 OpenAI client implementation using langchain-openai.
 """

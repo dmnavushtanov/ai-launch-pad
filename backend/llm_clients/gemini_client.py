@@ -1,3 +1,7 @@
+# backend/llm_clients/gemini_client.py
+# This file contains the Google Gemini client implementation using langchain-google-genai for LLM communication
+# Purpose: Handle Google Gemini API interactions, token estimation, and response formatting with proper error handling. This is NOT for other LLM providers or configuration management.
+
 """
 Google Gemini client implementation using langchain-google-genai.
 """

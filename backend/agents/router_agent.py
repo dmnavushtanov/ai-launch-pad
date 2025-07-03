@@ -1,3 +1,7 @@
+# backend/agents/router_agent.py
+# This file contains the RouterAgent for task decomposition and orchestration between multiple agents
+# Purpose: Decompose complex tasks into subtasks, select appropriate agents for each subtask, and aggregate results. This is NOT for individual task execution or agent creation.
+
 """
 Router agent for task decomposition and orchestration.
 """

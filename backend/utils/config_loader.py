@@ -1,3 +1,7 @@
+# backend/utils/config_loader.py
+# This file contains the configuration management system with YAML loading and environment variable substitution
+# Purpose: Load, validate, and manage application configuration from YAML files with environment variable support. This is NOT for runtime configuration changes or agent-specific settings.
+
 """
 Configuration management system with YAML loading and environment variable substitution.
 """

@@ -1,3 +1,7 @@
+# backend/prompts/common_prompts.py
+# This file contains common prompts shared across different agents for error handling, validation, and clarification
+# Purpose: Provide reusable prompt templates for common scenarios like error recovery, output validation, and user clarification. This is NOT for agent-specific prompts or workflow orchestration.
+
 """
 Common prompts shared across different agents.
 """
