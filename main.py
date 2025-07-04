@@ -19,7 +19,7 @@ from backend.utils.config_loader import get_config
 from backend.llm_clients.llm_factory import LLMFactory
 from backend.agents.agent_registry import AgentRegistry
 from backend.agents.router_agent import RouterAgent
-from backend.agents.task_agent_1 import TaskAgent1
+from backend.agents.task_agent_1 import CalculatorAgent
 from backend.agents.task_agent_2 import TaskAgent2
 from backend.workflows.sequential_workflow import SequentialWorkflow
 
@@ -37,7 +37,7 @@ class AILaunchpad:
         self.agent_registry = None
         self.workflow = None
         self.running = True
-        self.ui_logger = None  # For user interface messages
+        self.ui_logger = None
     
     def setup(self) -> None:
         """Initialize all system components."""
@@ -51,7 +51,7 @@ class AILaunchpad:
             logger.debug("📝 Setting up logging...")
             setup_logging()
             self.logger = get_logger("main")
-            self.ui_logger = get_logger("ui")  # For user interface messages
+            self.ui_logger = get_logger("ui")
             self.logger.info("✅ Logging initialized")
             
             # Initialize LLM factory
@@ -101,15 +101,15 @@ class AILaunchpad:
         logger.debug("✅ Router agent registered")
         
         # Register task agents
-        logger.debug("🔧 Registering task agent 1...")
+        logger.debug("🔧 Registering calculator agent...")
         self.agent_registry.register(
             name="task_agent_1",
-            agent_class=TaskAgent1,
+            agent_class=CalculatorAgent,
             version="1.0.0",
-            capabilities=["general_tasks", "analysis"],
-            description="Handles general tasks and analysis"
+            capabilities=["calculator", "mathematical_operations"],
+            description="Mathematical calculator with step-by-step reasoning"
         )
-        logger.debug("✅ Task agent 1 registered")
+        logger.debug("✅ Calculator agent registered")
         
         logger.debug("🔧 Registering task agent 2...")
         self.agent_registry.register(
@@ -138,6 +138,7 @@ class AILaunchpad:
         
         # First pass: create non-router agents
         non_router_agents = {}
+        failed_agents = []
         for agent_name in workflow_config.agents:
             if agent_name == "router":
                 continue  # Skip router for now
@@ -148,25 +149,47 @@ class AILaunchpad:
             agent_config = self.config.agents.get(agent_name)
             if not agent_config:
                 logger.warning(f"⚠️ Agent config not found: {agent_name}")
+                failed_agents.append((agent_name, "No configuration found"))
                 continue
             
             logger.debug(f"✅ Agent config found for: {agent_name}")
             
             # Get LLM client for agent
-            logger.debug(f"🔧 Getting LLM client for provider: {agent_config.llm_provider}")
-            llm_config = self.config.llm_clients.get(agent_config.llm_provider)
-            llm_client = self.llm_factory.create_client(llm_config)
-            logger.debug(f"✅ LLM client created for: {agent_name}")
+            try:
+                logger.debug(f"🔧 Getting LLM client for provider: {agent_config.llm_provider}")
+                llm_config = self.config.llm_clients.get(agent_config.llm_provider)
+                if not llm_config:
+                    raise ValueError(f"LLM config not found for provider: {agent_config.llm_provider}")
+                    
+                llm_client = self.llm_factory.create_client(llm_config)
+                logger.debug(f"✅ LLM client created for: {agent_name}")
+            except Exception as e:
+                logger.error(f"❌ Failed to create LLM client for {agent_name}: {str(e)}")
+                failed_agents.append((agent_name, f"LLM client error: {str(e)}"))
+                continue
             
             # Create agent instance
             logger.debug(f"🔧 Creating agent instance: {agent_name}")
-            agent = self.agent_registry.create_instance(agent_name, llm_client)
-            if agent:
-                agents.append(agent)
-                non_router_agents[agent_name] = agent
-                logger.info(f"✅ Agent instance created: {agent_name}")
-            else:
-                logger.warning(f"❌ Failed to create agent instance: {agent_name}")
+            try:
+                agent = self.agent_registry.create_instance(agent_name, llm_client)
+                if agent:
+                    agents.append(agent)
+                    non_router_agents[agent_name] = agent
+                    logger.info(f"✅ Agent instance created: {agent_name}")
+                else:
+                    logger.error(f"❌ Agent registry returned None for: {agent_name}")
+                    failed_agents.append((agent_name, "Agent creation returned None"))
+            except Exception as e:
+                logger.error(f"❌ Exception creating agent {agent_name}: {str(e)}")
+                failed_agents.append((agent_name, f"Creation exception: {str(e)}"))
+        
+        # Log summary of agent creation
+        if failed_agents:
+            logger.warning(f"⚠️ Failed to create {len(failed_agents)} agents:")
+            for agent_name, reason in failed_agents:
+                logger.warning(f"   - {agent_name}: {reason}")
+        
+        logger.info(f"📊 Successfully created {len(non_router_agents)} non-router agents: {list(non_router_agents.keys())}")
         
         # Second pass: create router agent with available agents
         if "router" in workflow_config.agents:
@@ -249,8 +272,11 @@ class AILaunchpad:
                 self.ui_logger.info("\n\n⚡ Interrupted by user")
                 break
             except Exception as e:
-                self.logger.error(f"❌ Error processing request: {str(e)}")
-                self.ui_logger.error(f"\n❌ Error: {str(e)}\n")
+                import traceback
+                self.logger.error(f"❌ Error processing request: {str(e)}\n{traceback.format_exc()}")
+                self.ui_logger.error(f"\n❌ An error occurred during processing: {str(e)}")
+                self.ui_logger.error("Full traceback below:")
+                self.ui_logger.error(traceback.format_exc())
     
     def _show_help(self) -> None:
         """Display help information."""

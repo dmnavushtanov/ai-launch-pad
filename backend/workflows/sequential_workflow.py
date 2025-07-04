@@ -2,6 +2,9 @@
 # This file contains the sequential workflow implementation that executes agents one after another
 # Purpose: Execute agents in a predefined sequential order with context passing, progress tracking, and failure recovery. This is NOT for parallel execution or agent creation.
 
+# This workflow is a simple executor that runs a list of agents in a fixed sequence.
+# It has no internal routing logic; all intelligence must be handled by the agents it runs (e.g., a RouterAgent).
+
 from typing import Dict, Any, Optional, List
 
 from .base_workflow import BaseWorkflow
@@ -87,6 +90,11 @@ class SequentialWorkflow(BaseWorkflow):
                 
                 # Use output as next input
                 current_task = agent_result
+                
+                # If RouterAgent has executed, assume workflow is complete
+                if agent.name == "RouterAgent":
+                    self.logger.info("RouterAgent has completed its execution. Concluding workflow.")
+                    break
                 
             except Exception as e:
                 self.logger.error(f"❌ Agent {agent.name} failed: {str(e)}")

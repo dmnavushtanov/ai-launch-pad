@@ -154,7 +154,8 @@ class BaseAgent(ABC):
             
         except Exception as e:
             # Log error
-            self.logger.error(f"❌ Task failed: {str(e)}")
+            import traceback
+            self.logger.error(f"❌ Task failed: {str(e)}\n{traceback.format_exc()}")
             
             # Record failure
             self._execution_history.append({
@@ -167,8 +168,8 @@ class BaseAgent(ABC):
             # Set failed state
             self._set_state(AgentState.FAILED)
             
-            # Return error message
-            return f"Error: {str(e)}"
+            # Re-raise the exception to be handled by the workflow
+            raise
     
     def create_langchain_agent(self, prompt_template: str) -> AgentExecutor:
         """
@@ -183,23 +184,39 @@ class BaseAgent(ABC):
         if not self.tools:
             raise ValueError("No tools available for agent")
         
-        # Create prompt
-        prompt = PromptTemplate.from_template(prompt_template)
+        try:
+            # Create prompt
+            prompt = PromptTemplate.from_template(prompt_template)
+        except Exception as e:
+            self.logger.error(f"Failed to create prompt template: {str(e)}")
+            raise ValueError(f"Invalid prompt template: {str(e)}")
         
-        # Create ReAct agent
-        agent = create_react_agent(
-            llm=self.llm_client.client,
-            tools=self.tools,
-            prompt=prompt
-        )
+        try:
+            # Create ReAct agent
+            agent = create_react_agent(
+                llm=self.llm_client.client,
+                tools=self.tools,
+                prompt=prompt
+            )
+        except AttributeError as e:
+            self.logger.error(f"LLM client doesn't have required 'client' attribute: {str(e)}")
+            self.logger.error(f"LLM client type: {type(self.llm_client)}")
+            raise ValueError(f"Invalid LLM client configuration: {str(e)}")
+        except Exception as e:
+            self.logger.error(f"Failed to create ReAct agent: {str(e)}")
+            raise
         
-        # Create executor
-        self._agent_executor = AgentExecutor(
-            agent=agent,
-            tools=self.tools,
-            verbose=True,
-            handle_parsing_errors=True
-        )
+        try:
+            # Create executor
+            self._agent_executor = AgentExecutor(
+                agent=agent,
+                tools=self.tools,
+                verbose=True,
+                handle_parsing_errors=True
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to create agent executor: {str(e)}")
+            raise
         
         return self._agent_executor
     
@@ -217,8 +234,13 @@ class BaseAgent(ABC):
             raise ValueError("Agent executor not initialized")
         
         try:
-            result = self._agent_executor.run(task)
-            return result
+            # Use invoke instead of run (run is deprecated)
+            result = self._agent_executor.invoke({"input": task})
+            # Extract the output from the result dictionary
+            if isinstance(result, dict) and "output" in result:
+                return result["output"]
+            else:
+                return str(result)
         except Exception as e:
             self.logger.error(f"Agent execution failed: {str(e)}")
             raise

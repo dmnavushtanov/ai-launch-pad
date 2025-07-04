@@ -1,0 +1,110 @@
+# backend/prompts/router.yml
+# This file contains router agent prompts in YAML format for easy configuration
+# Purpose: Define router agent prompt templates. This is NOT for code execution or agent implementation.
+
+# Router agent prompts for task decomposition and agent selection
+
+TASK_DECOMPOSITION_PROMPT: |
+  You are a task decomposition expert. Break down the user's request into smaller, manageable tasks.
+
+  User Request: {user_request}
+  Available Agents: {available_agents}
+
+  Analyze the request and decompose it into a sequence of tasks. Each task should be:
+  - Clear, specific, and self-contained
+  - Assignable to one agent
+  - Properly sequenced if there are dependencies
+
+  **Important Rules for Task Dependencies:**
+  - If a task needs the output from a previous step, you MUST use the placeholder `{{step_N_output}}` where `N` is the step number.
+  - This is critical for the system to correctly pass data between steps.
+
+  Example 1 (No Dependencies):
+  User Request: "Summarize the latest AI news and then draft an email about it."
+  Tasks:
+  1. Find the latest news about AI.
+  2. Summarize the news found in step 1.
+  3. Draft an email with the summary from step 2.
+  
+  Example 2 (With Dependencies):
+  User Request: "Analyze sales data and create a report with visualizations"
+  Tasks:
+  1. Load and validate sales data.
+  2. Perform statistical analysis on the data from `{{step_1_output}}`.
+  3. Create data visualizations based on the analysis from `{{step_2_output}}`.
+  4. Generate a report document combining the analysis from `{{step_2_output}}` and visualizations from `{{step_3_output}}`.
+
+  Output your tasks as a numbered list.
+
+AGENT_SELECTION_PROMPT: |
+  Select the most appropriate agent for the given task.
+
+  Task: {task}
+  Available Agents:
+  {agents_description}
+
+  Consider:
+  - Agent capabilities
+  - Task requirements
+  - The original user request to determine if a complex analysis is needed.
+
+  **CRUCIAL RULE:**
+  - For tasks that are simple lookups or calculations, and the final step is just presenting that result, DO NOT use `task_agent_2`.
+  - Only select `task_agent_2` if the user's original request explicitly asks for "analysis", "summarization", "reporting", or "insights".
+  - If the task is only about formatting or presenting a result that has already been calculated in a previous step (e.g., the task is 'present the final result'), respond with `Agent: None`.
+
+  Example:
+  Task: "Analyze customer sentiment from reviews"
+  Agents: [DataAgent: handles data processing, NLPAgent: handles text analysis]
+  Selected: NLPAgent
+  Reason: Task requires natural language processing capabilities
+
+  Output:
+  Agent: [agent_name]
+  Reason: [brief explanation]
+
+CONTEXT_SUMMARY_PROMPT: |
+  Summarize the relevant context for the next agent.
+
+  Previous Agent: {previous_agent}
+  Previous Output: {previous_output}
+  Next Agent: {next_agent}
+  Next Task: {next_task}
+
+  Create a concise summary that includes:
+  - Key results from previous agent
+  - Relevant data or insights
+  - Any constraints or requirements
+
+  Example:
+  Previous Agent: DataAgent
+  Previous Output: "Loaded 10,000 customer records, 15% missing emails"
+  Next Agent: ValidationAgent
+  Next Task: "Clean and validate customer data"
+  Summary: "Customer dataset has 10,000 records with 15% missing email addresses. Needs cleaning and validation before analysis."
+
+  Summary:
+
+REACT_PROMPT: |
+  Use the ReAct pattern to solve this task step by step.
+
+  Task: {task}
+  Context: {context}
+  Available Tools: {available_tools}
+
+  Follow this pattern:
+  Thought: Analyze what needs to be done
+  Action: Choose an action/tool
+  Observation: Note the result
+  ... (repeat as needed)
+  Final Answer: Provide the solution
+
+  Example:
+  Task: Find the total revenue for Q4 2023
+  Thought: I need to query sales data for Q4 2023
+  Action: query_database("SELECT SUM(revenue) FROM sales WHERE quarter='Q4' AND year=2023")
+  Observation: Query returned 1,250,000
+  Thought: I have the total revenue
+  Final Answer: The total revenue for Q4 2023 is $1,250,000
+
+  Begin: 

@@ -89,15 +89,27 @@ class Logger:
             logging_config = config.logging
             
             # Console handler with Rich formatting
-            console_handler = RichHandler(
-                console=cls._console,
-                show_time=True,
-                show_level=True,
-                show_path=config.debug,
-                markup=True,
-                rich_tracebacks=True,
-                tracebacks_show_locals=config.debug,
-            )
+            # Special configuration for UI logger - no timestamps or levels
+            if name == "ui":
+                console_handler = RichHandler(
+                    console=cls._console,
+                    show_time=False,
+                    show_level=False,
+                    show_path=False,
+                    markup=True,
+                    rich_tracebacks=True,
+                    tracebacks_show_locals=config.debug,
+                )
+            else:
+                console_handler = RichHandler(
+                    console=cls._console,
+                    show_time=True,
+                    show_level=True,
+                    show_path=config.debug,
+                    markup=True,
+                    rich_tracebacks=True,
+                    tracebacks_show_locals=config.debug,
+                )
             console_handler.setLevel(getattr(logging, logging_config.level.upper()))
             logger.addHandler(console_handler)
             

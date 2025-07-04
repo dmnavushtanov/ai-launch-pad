@@ -173,12 +173,31 @@ class AgentRegistry:
         
         try:
             agent_info = self._agents[name]
-            agent_instance = agent_info.agent_class(llm_client=llm_client)
+            self.logger.info(f"Creating instance of {name} using {agent_info.agent_class.__name__}")
+            
+            # Try to create the agent instance with detailed error tracking
+            try:
+                agent_instance = agent_info.agent_class(llm_client=llm_client)
+            except TypeError as e:
+                self.logger.error(f"TypeError creating {name}: {str(e)}")
+                self.logger.error(f"Agent class: {agent_info.agent_class}")
+                self.logger.error(f"This might be due to missing or incorrect constructor parameters")
+                raise
+            except ImportError as e:
+                self.logger.error(f"ImportError creating {name}: {str(e)}")
+                self.logger.error(f"Missing dependency. Please ensure all required packages are installed.")
+                self.logger.error(f"For {name}, you might need: pip install langchain langchain-community")
+                raise
+            except Exception as e:
+                self.logger.error(f"Unexpected error creating {name}: {type(e).__name__}: {str(e)}")
+                import traceback
+                self.logger.error(f"Full traceback:\n{traceback.format_exc()}")
+                raise
             
             # Cache the instance
             self._instances[name] = agent_instance
             
-            self.logger.info(f"Created instance of agent: {name}")
+            self.logger.info(f"✅ Successfully created instance of agent: {name}")
             return agent_instance
             
         except Exception as e:

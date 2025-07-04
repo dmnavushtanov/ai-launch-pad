@@ -11,8 +11,7 @@ import re
 
 from .base_agent import BaseAgent, AgentState
 from ..llm_clients.base_llm_client import BaseClient
-from ..prompts.router_prompts import RouterPrompts
-from ..utils.prompt_loader import PromptLoader
+from ..utils.prompt_loader import prompt_loader
 from ..utils.context_manager import ContextManager
 
 
@@ -36,13 +35,15 @@ class RouterAgent(BaseAgent):
         
         self.available_agents = available_agents
         self.max_retries = max_retries
-        self.prompt_loader = PromptLoader()
         
-        # Load prompts
-        self.prompts = self.prompt_loader.load_from_class(
-            'backend.prompts.router_prompts',
-            'RouterPrompts'
-        )
+        # Validate available agents
+        if not self.available_agents:
+            self.logger.warning("⚠️ RouterAgent initialized with no available agents!")
+            self.logger.warning("   This means the router cannot delegate any tasks.")
+        else:
+            self.logger.info(f"✅ RouterAgent initialized with {len(self.available_agents)} available agents:")
+            for name, agent in self.available_agents.items():
+                self.logger.info(f"   - {name}: {agent.description}")
     
     def execute(self, task: str, context: Optional[Dict[str, Any]] = None) -> str:
         """
@@ -60,37 +61,53 @@ class RouterAgent(BaseAgent):
             subtasks = self.decompose_task(task)
             self.logger.info(f"📋 Decomposed into {len(subtasks)} subtasks")
             
+            # Log the actual subtasks for debugging
+            for i, subtask in enumerate(subtasks, 1):
+                self.logger.debug(f"   Subtask {i}: {subtask}")
+            
             # Execute tasks sequentially
             results = []
             current_context = context or {}
             
             for i, subtask in enumerate(subtasks):
                 self.logger.info(f"🔄 Processing subtask {i+1}/{len(subtasks)}: {subtask[:50]}...")
+
+                # Substitute placeholders before selecting agent
+                current_task = self._substitute_placeholders(subtask, results)
                 
                 # Select agent
-                selected_agent = self.select_agent(subtask)
+                selected_agent = self.select_agent(current_task)
+                
+                # If no agent is selected, it means the workflow is complete.
                 if not selected_agent:
-                    self.logger.warning(f"⚠️ No suitable agent for: {subtask}")
-                    continue
+                    self.logger.info(f"✅ No suitable agent found for task, assuming workflow is complete.")
+                    break
+                
+                self.logger.debug(f"   Selected agent: {selected_agent.name} for subtask: {current_task[:50]}...")
                 
                 # Pass context between agents
                 if i > 0 and results:
-                    current_context = self.create_context_summary(
-                        previous_agent=results[-1]['agent'],
-                        previous_output=results[-1]['result'],
-                        next_agent=selected_agent.name,
-                        next_task=subtask
+                    previous_steps_summary = "\n".join(
+                        [f"- Step {j+1} (executed by {res['agent']}):\n  Task: {res['task']}\n  Result: {res['result']}" for j, res in enumerate(results)]
                     )
+                    current_context['summary'] = (
+                        "You are part of a multi-step workflow. Here is a summary of the previous steps:\n"
+                        f"{previous_steps_summary}"
+                    )
+                    self.logger.info("Created context summary for the next agent.")
+                else:
+                    # For the first step, context might be passed from outside, but we should clear summary if it exists from a previous run.
+                    current_context.pop('summary', None)
                 
                 # Execute with retry
                 result = self.execute_with_retry(
                     agent=selected_agent,
-                    task=subtask,
+                    task=current_task,
                     context=current_context
                 )
                 
                 results.append({
-                    'task': subtask,
+                    'task': current_task,
                     'agent': selected_agent.name,
                     'result': result
                 })
@@ -127,6 +144,23 @@ class RouterAgent(BaseAgent):
         
         return str(raw_output)
     
+    def _substitute_placeholders(self, task: str, results: List[Dict[str, Any]]) -> str:
+        """Substitutes placeholders like {step_1_output} with actual results."""
+        placeholders = re.findall(r'\{step_(\d+)_output\}', task)
+        if not placeholders:
+            return task
+
+        for step_num_str in placeholders:
+            step_num = int(step_num_str)
+            if 1 <= step_num <= len(results):
+                previous_result = results[step_num - 1]['result']
+                placeholder_str = f"{{step_{step_num}_output}}"
+                task = task.replace(placeholder_str, str(previous_result))
+                self.logger.debug(f"Replaced {placeholder_str} with result from step {step_num}")
+            else:
+                self.logger.warning(f"Invalid step number {step_num} in placeholder for task: {task}")
+        return task
+
     def decompose_task(self, user_request: str) -> List[str]:
         """
         Decompose user request into subtasks.
@@ -144,14 +178,17 @@ class RouterAgent(BaseAgent):
         ]
         
         # Format prompt
-        prompt = self.prompt_loader.format_prompt(
-            self.prompts['TASK_DECOMPOSITION_PROMPT'],
+        prompt_template = prompt_loader.get_prompt('router', 'TASK_DECOMPOSITION_PROMPT')
+        prompt = prompt_template.format(
             user_request=user_request,
             available_agents=", ".join(agent_descriptions)
         )
         
         # Get decomposition
         response = self.llm_client.generate_response(prompt)
+        
+        # Log the raw response for debugging
+        self.logger.debug(f"Task decomposition raw response:\n{response.content}")
         
         # Parse numbered list
         tasks = []
@@ -181,8 +218,8 @@ class RouterAgent(BaseAgent):
         ])
         
         # Format prompt
-        prompt = self.prompt_loader.format_prompt(
-            self.prompts['AGENT_SELECTION_PROMPT'],
+        prompt_template = prompt_loader.get_prompt('router', 'AGENT_SELECTION_PROMPT')
+        prompt = prompt_template.format(
             task=task,
             agents_description=agent_descriptions
         )
@@ -190,52 +227,24 @@ class RouterAgent(BaseAgent):
         # Get selection
         response = self.llm_client.generate_response(prompt)
         
-        # Parse agent name
-        content = response.content
-        agent_match = re.search(r'Agent:\s*(\w+)', content)
+        # Log the raw response for debugging
+        self.logger.debug(f"Agent selection raw response for task '{task[:50]}...':\n{response.content}")
         
-        if agent_match:
-            agent_name = agent_match.group(1)
-            return self.available_agents.get(agent_name)
+        # Simple approach: check which agent name appears in the response
+        content = response.content.lower()
+
+        # Handle the case where no agent is needed
+        if 'agent: none' in content:
+            self.logger.debug("Agent selection returned 'None'. No further action needed.")
+            return None
         
+        for agent_name, agent in self.available_agents.items():
+            if agent_name.lower() in content:
+                self.logger.debug(f"Found agent name '{agent_name}' in response")
+                return agent
+        
+        self.logger.warning(f"No agent name found in response: {response.content}")
         return None
-    
-    def create_context_summary(
-        self,
-        previous_agent: str,
-        previous_output: str,
-        next_agent: str,
-        next_task: str
-    ) -> Dict[str, Any]:
-        """
-        Create context summary for next agent.
-        
-        Args:
-            previous_agent: Previous agent name
-            previous_output: Previous agent's output
-            next_agent: Next agent name
-            next_task: Next task
-            
-        Returns:
-            Context dictionary
-        """
-        # Format prompt
-        prompt = self.prompt_loader.format_prompt(
-            self.prompts['CONTEXT_SUMMARY_PROMPT'],
-            previous_agent=previous_agent,
-            previous_output=previous_output,
-            next_agent=next_agent,
-            next_task=next_task
-        )
-        
-        # Get summary
-        response = self.llm_client.generate_response(prompt)
-        
-        return {
-            'summary': response.content,
-            'previous_agent': previous_agent,
-            'previous_output': previous_output
-        }
     
     def execute_with_retry(
         self,

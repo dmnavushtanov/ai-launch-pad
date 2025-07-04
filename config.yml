@@ -14,7 +14,7 @@ default_llm: "openai"
 llm_clients:
   openai:
     provider: "openai"
-    model: "${OPENAI_MODEL:gpt-4}"
+    model: "${OPENAI_MODEL:gpt-3.5-turbo}"
     api_key: "${OPENAI_API_KEY}"
     temperature: 0.7
     max_tokens: 2000
@@ -48,13 +48,13 @@ agents:
     tools: []
   
   task_agent_1:
-    name: "Task Agent 1"
-    description: "Handles general task processing and analysis"
+    name: "Calculator Agent"
+    description: "Mathematical calculator agent with step-by-step reasoning"
     llm_provider: "openai"
-    system_prompt: "You are a specialized task agent focused on general problem-solving and analysis."
-    temperature: 0.7
+    system_prompt: "You are a mathematical calculator assistant that explains calculations step-by-step."
+    temperature: 0.3
     max_iterations: 10
-    tools: ["web_search", "file_operations"]
+    tools: ["calculator"]
   
   task_agent_2:
     name: "Task Agent 2"
@@ -83,17 +83,17 @@ workflows:
     max_steps: 25
     timeout: 600
   
-  router_based:
-    name: "Router-Based Workflow"
-    description: "Router directs tasks to appropriate agents"
+  router_workflow:
+    name: "Intelligent Router Workflow"
+    description: "Router intelligently routes tasks to appropriate agents"
     type: "router_based"
-    agents: ["router", "task_agent_1", "task_agent_2"]
+    agents: ["router"]
     max_steps: 30
     timeout: 450
 
 # Logging Configuration
 logging:
-  level: "${LOG_LEVEL:INFO}"
+  level: "${LOG_LEVEL:DEBUG}"
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
   file_path: "${LOG_FILE_PATH:logs/app.log}"
   max_file_size: 10485760  # 10MB

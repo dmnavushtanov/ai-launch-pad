@@ -7,8 +7,8 @@ from langchain.tools import BaseTool
 
 from .base_agent import BaseAgent
 from ..llm_clients.base_llm_client import BaseClient
-from ..prompts.task_agent_prompts import TaskAgentPrompts
 from ..utils.context_manager import ContextManager
+from ..utils.prompt_loader import prompt_loader
 
 
 class TaskAgent2(BaseAgent):
@@ -29,11 +29,15 @@ class TaskAgent2(BaseAgent):
             context_manager=context_manager
         )
         self.domain = domain
-        self.prompts = TaskAgentPrompts()
         
         # Initialize agent executor if tools are provided
         if self.tools:
-            self._setup_tool_agent()
+            try:
+                self._setup_tool_agent()
+            except Exception as e:
+                self.logger.warning(f"Failed to setup tool agent: {str(e)}")
+                self.logger.warning(f"Continuing without tool integration")
+                self.tools = []  # Clear tools to prevent issues later
     
     def execute(self, task: str, context: Optional[Dict[str, Any]] = None) -> str:
         """
@@ -63,11 +67,12 @@ class TaskAgent2(BaseAgent):
         Returns:
             True if valid
         """
-        # Basic validation
-        if not super().validate_input(task, context):
+        # Basic validation - check if task is not empty
+        if not task or not task.strip():
+            self.logger.error("Empty task provided")
             return False
         
-        # Domain-specific validation
+        # Domain-specific validation (just log warning, don't reject)
         if self.domain == "data_analysis" and "analyze" not in task.lower():
             self.logger.warning(f"Task may not be suitable for {self.domain} domain")
         
@@ -120,14 +125,17 @@ class TaskAgent2(BaseAgent):
     
     def _setup_tool_agent(self):
         """Setup LangChain agent with tools."""
-        prompt_template = """You are a specialized {domain} agent with access to tools.
+        # Create prompt template with required placeholders for LangChain
+        # Do NOT format {tools}, {tool_names}, {input}, or {agent_scratchpad}
+        # LangChain will handle these placeholders
+        prompt_template = f"""You are a specialized {self.domain} agent with access to tools.
 
 Available tools:
-{tools}
+{{tools}}
 
-Tool Names: {tool_names}
+Tool Names: {{tool_names}}
 
-Task: {input}
+Task: {{input}}
 
 Use the available tools when needed to complete the task.
 Follow this format:
@@ -140,10 +148,9 @@ Observation: tool result
 Thought: Final analysis
 Final Answer: Complete response
 
-{agent_scratchpad}"""
+{{agent_scratchpad}}"""
         
-        prompt = prompt_template.replace("{domain}", self.domain)
-        self.create_langchain_agent(prompt)
+        self.create_langchain_agent(prompt_template)
     
     def _should_use_tools(self, task: str) -> bool:
         """Determine if tools should be used for the task."""
@@ -172,15 +179,15 @@ Final Answer: Complete response
             context_str = self._format_context(context)
         
         # Use specialized prompt
-        prompt = self.prompts.SPECIALIZED_TASK_PROMPT.format(
-            domain=self.domain,
+        prompt_template = prompt_loader.get_prompt('task_agent', 'DATA_ANALYSIS_PROMPT')
+        prompt = prompt_template.format(
             task=task,
-            context=context_str or "No previous context",
-            domain_requirements=self._get_domain_requirements()
+            data_context=context_str or "No previous context",
+            tools="None available"
         )
         
         self.logger.info(f"Executing {self.domain} task without tools")
-        return self.llm_client.generate(prompt)
+        return self.llm_client.generate_response(prompt)
     
     def _get_domain_requirements(self) -> str:
         """Get domain-specific requirements."""
